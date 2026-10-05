@@ -62,6 +62,8 @@ func CareTopicText(t string) string {
 		return "病虫害"
 	case "propagation":
 		return "繁殖"
+	case "qa":
+		return "问答精选"
 	default:
 		return "通用"
 	}

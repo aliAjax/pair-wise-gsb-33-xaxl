@@ -40,7 +40,8 @@ func (s *CareArticleService) Create(userID uint, a *model.CareArticle) (*model.C
 	return a, nil
 }
 
-// Get returns an article and increments view count.
+// Get returns a published article and increments view count. Drafts and
+// invalidated drafts are only visible to their author via ListMine.
 func (s *CareArticleService) Get(id uint) (*model.CareArticle, error) {
 	a, err := s.repo.FindByID(id)
 	if err != nil {
@@ -49,6 +50,10 @@ func (s *CareArticleService) Get(id uint) (*model.CareArticle, error) {
 		}
 		return nil, fmt.Errorf("care article get: %w", err)
 	}
+	if a.Status != constants.ArticleStatusPublished {
+		return nil, util.NewAppError(404, constants.CodeNotFound,
+			fmt.Sprintf("CareArticle[id=%d] not found: status=%s not published", id, a.Status))
+	}
 	if err := s.repo.IncrementView(id); err == nil {
 		a.ViewCount++
 		s.logger.Info(fmt.Sprintf(constants.LogArticleViewIncremented, id), "id", id)
@@ -56,7 +61,20 @@ func (s *CareArticleService) Get(id uint) (*model.CareArticle, error) {
 	return a, nil
 }
 
-// Update edits an article, verifying ownership.
+// ListMine returns the current user's articles in every status so QA-sedimented
+// drafts stay editable and publishable.
+func (s *CareArticleService) ListMine(userID uint, page, pageSize int) ([]model.CareArticle, int64, error) {
+	items, total, err := s.repo.ListByUser(userID, page, pageSize)
+	if err != nil {
+		return nil, 0, fmt.Errorf("care article list mine: %w", err)
+	}
+	return items, total, nil
+}
+
+// Update edits an article, verifying ownership. Invalidated drafts are frozen
+// (they can only be deleted); a draft becomes published only through an
+// explicit draft→published status transition, which keeps the sedimented
+// snapshot the author chose to publish.
 func (s *CareArticleService) Update(id, userID uint, a *model.CareArticle) (*model.CareArticle, error) {
 	exist, err := s.repo.FindByID(id)
 	if err != nil {
@@ -65,6 +83,18 @@ func (s *CareArticleService) Update(id, userID uint, a *model.CareArticle) (*mod
 	if exist.UserID != userID {
 		return nil, util.NewAppError(403, constants.CodeForbidden,
 			fmt.Sprintf("CareArticle[id=%d] update failed: user_id=%d is not owner", id, userID))
+	}
+	if exist.Status == constants.ArticleStatusInvalid {
+		return nil, util.NewAppError(409, constants.CodeConflict,
+			fmt.Sprintf("CareArticle[id=%d] update failed: invalidated draft can only be deleted", id))
+	}
+	if a.Status != "" && a.Status != exist.Status {
+		if exist.Status == constants.ArticleStatusDraft && a.Status == constants.ArticleStatusPublished {
+			exist.Status = constants.ArticleStatusPublished
+		} else {
+			return nil, util.NewAppError(409, constants.CodeConflict,
+				fmt.Sprintf("CareArticle[id=%d] update failed: status %s -> %s not allowed", id, exist.Status, a.Status))
+		}
 	}
 	if a.Title != "" {
 		exist.Title = a.Title

@@ -13,6 +13,7 @@ func registerArticleRoutes(v1 *gin.RouterGroup, cfg *config.Config, h *handler.C
 	articles.GET("", h.List)
 	articles.GET("/:id", h.Get)
 	auth := articles.Group("", middleware.AuthRequired(cfg))
+	auth.GET("/mine", h.ListMine)
 	auth.POST("", limiter.Limit(), h.Create)
 	auth.PUT("/:id", h.Update)
 	auth.DELETE("/:id", h.Delete)

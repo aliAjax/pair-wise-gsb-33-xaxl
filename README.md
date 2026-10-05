@@ -131,9 +131,10 @@ gb-61/
 | PUT | /api/v1/plants/:id | 管理员 | 更新品种 |
 | DELETE | /api/v1/plants/:id | 管理员 | 删除品种 |
 | GET | /api/v1/articles | 公开 | 养护文章分页列表/筛选 |
-| GET | /api/v1/articles/:id | 公开 | 文章详情并自增阅读数 |
+| GET | /api/v1/articles/mine | 登录 | 我的文章列表（含草稿/已失效） |
+| GET | /api/v1/articles/:id | 公开 | 文章详情并自增阅读数（仅已发布） |
 | POST | /api/v1/articles | 登录（限流） | 发布文章 |
-| PUT | /api/v1/articles/:id | 登录 | 编辑自己的文章 |
+| PUT | /api/v1/articles/:id | 登录 | 编辑自己的文章；支持 draft→published 发布草稿 |
 | DELETE | /api/v1/articles/:id | 登录 | 删除自己的文章 |
 | GET | /api/v1/pests | 公开 | 病虫害手册搜索 |
 | GET | /api/v1/pests/:id | 公开 | 病虫害详情 |
@@ -156,10 +157,20 @@ gb-61/
 | GET | /api/v1/questions/:id | 公开 | 问题详情 |
 | GET | /api/v1/questions/:id/answers | 公开 | 问题回答列表 |
 | POST | /api/v1/questions | 登录（限流） | 发布问题 |
-| POST | /api/v1/questions/:id/answers | 登录 | 回答问题 |
-| PUT | /api/v1/questions/:id/adopt | 登录 | 采纳最佳回答（事务：清旧最佳+标最佳+关闭问题） |
+| POST | /api/v1/questions/:id/answers | 登录 | 回答问题（已关闭问题拒绝新回答） |
+| PUT | /api/v1/questions/:id/adopt | 登录 | 采纳最佳回答（单事务：关问题+标最佳+生成文章草稿；并发采纳先到者胜，后到者 409） |
+| PUT | /api/v1/answers/:id | 登录 | 编辑自己的回答（版本+1，同事务失效未发布草稿） |
 | PUT | /api/v1/answers/:id/like | 登录 | 回答点赞 |
 | POST | /api/v1/uploads | 登录（限流） | 上传图片 |
+
+## 问答沉淀（采纳 → 文章草稿）
+
+同一个养护问题被反复问时，最佳回答不再只是一个静态标记，而是沉淀为可续作的养护文章：
+
+1. **采纳即沉淀**：问题主人采纳回答后，在同一事务里关闭问题、标记最佳回答、生成 `qa`（问答精选）主题的文章草稿（`care_articles.question_id/answer_id/answer_version` 记录来源与回答版本快照）。草稿生成失败则整个采纳回滚，可直接重试，不会留下"最佳回答已换、文章仍指旧回答"的半套数据。
+2. **先到先得**：并发采纳时通过 `UPDATE questions SET status='closed' WHERE id=? AND status='open'` 条件更新抢占，只有先到的一版成为最佳回答并生成草稿，后到者收到 409。
+3. **回答可改、版本可循**：回答作者可通过 `PUT /answers/:id` 修改回答（`version` 递增）。修改后，由该回答生成的**未发布草稿**同事务置为 `invalid`（失效草稿不可再编辑发布，只能删除）；**已发布文章**保留采纳时的原版快照，不受回答修改影响。
+4. **草稿可续作**：作者在个人中心「我的文章」查看全部状态的文章，编辑草稿内容后经 `draft→published` 流转发布；失效草稿保留来源信息供参考。
 
 ## 枚举出现位置清单
 
@@ -168,10 +179,20 @@ gb-61/
 - 后端：`backend/internal/constants/plant.go`（定义）、`backend/internal/model/plant_species.go`（GORM 模型字段）、`backend/internal/service/plant_species_service.go`（校验/日志）、`backend/internal/util/formatters.go`（PlantTypeText）、`backend/internal/constants/log_templates.go`（日志模板）、`backend/internal/constants/error_codes.go`（错误码）、`database/init.sql`（种子数据）
 - 前端：`frontend/src/constants/plant.ts`（定义）、`frontend/src/components/common/PlantCard.vue`（类型标签）、`frontend/src/pages/PlantLibrary.vue`（筛选器）、`frontend/src/pages/PlantDetail.vue`（详情）、`frontend/src/utils/season.ts`（plantTypeOptions）
 
-### CareTopicTag（养护主题：fertilizing/pruning/repotting/pest_control/propagation）
+### CareTopicTag（养护主题：fertilizing/pruning/repotting/pest_control/propagation/qa）
 
 - 后端：`backend/internal/constants/article.go`（定义）、`backend/internal/model/care_article.go`（模型）、`backend/internal/service/care_article_service.go`（校验）、`backend/internal/util/formatters.go`（CareTopicText）、`backend/internal/constants/log_templates.go`、`database/init.sql`
-- 前端：`frontend/src/constants/article.ts`（定义）、`frontend/src/components/common/CareArticleCard.vue`（标签）、`frontend/src/pages/ArticleList.vue`（筛选）、`frontend/src/pages/ArticleDetail.vue`（详情）
+- 前端：`frontend/src/constants/article.ts`（定义）、`frontend/src/components/common/CareArticleCard.vue`（标签）、`frontend/src/pages/ArticleList.vue`（筛选）、`frontend/src/pages/ArticleDetail.vue`（详情）、`frontend/src/pages/Profile.vue`（我的文章）
+
+### QuestionStatus（问答状态：open/closed）
+
+- 后端：`backend/internal/constants/question.go`（定义）、`backend/internal/model/question.go`（模型）、`backend/internal/service/question_service.go`（创建默认值）、`backend/internal/service/answer_service.go`（采纳关闭/关闭后拒答）、`backend/internal/repository/question_repository.go`（CloseIfOpenTx 条件更新）
+- 前端：`frontend/src/pages/QuestionDetail.vue`（关闭标识与采纳入口显隐）
+
+### CareArticleStatus（文章状态：draft/published/invalid）
+
+- 后端：`backend/internal/constants/article.go`（定义）、`backend/internal/model/care_article.go`（模型）、`backend/internal/service/care_article_service.go`（公开可见性与状态流转）、`backend/internal/service/answer_service.go`（草稿生成/失效）、`backend/internal/repository/care_article_repository.go`（按状态过滤）
+- 前端：`frontend/src/constants/article.ts`（CareArticleStatusMap）、`frontend/src/pages/Profile.vue`（我的文章状态标签）
 
 ### FavoriteTargetType（收藏目标：plant/article）
 

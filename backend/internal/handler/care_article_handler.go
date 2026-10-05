@@ -61,6 +61,25 @@ func (h *CareArticleHandler) Get(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.OK(a))
 }
 
+// ListMine handles GET /articles/mine (authenticated): the author's own
+// articles in every status, including QA-sedimented drafts.
+func (h *CareArticleHandler) ListMine(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 10
+	}
+	items, total, err := h.svc.ListMine(middleware.GetUserID(c), page, pageSize)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.OK(dto.PageData{List: items, Total: total, Page: page, Size: pageSize}))
+}
+
 // Create handles POST /articles (authenticated).
 func (h *CareArticleHandler) Create(c *gin.Context) {
 	var req dto.ArticleCreateRequest
@@ -77,19 +96,20 @@ func (h *CareArticleHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, dto.OK(created))
 }
 
-// Update handles PUT /articles/:id.
+// Update handles PUT /articles/:id. Accepts partial edits plus the
+// draft→published status transition used to publish a sedimented QA draft.
 func (h *CareArticleHandler) Update(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
 		c.Error(util.NewAppError(http.StatusBadRequest, constants.CodeBadRequest, "invalid article id"))
 		return
 	}
-	var req dto.ArticleCreateRequest
+	var req dto.ArticleUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(util.NewAppError(http.StatusBadRequest, constants.CodeBadRequest, constants.MsgInvalidParam))
 		return
 	}
-	a := &model.CareArticle{Title: req.Title, Content: req.Content, Cover: req.Cover, TopicTag: req.TopicTag}
+	a := &model.CareArticle{Title: req.Title, Content: req.Content, Cover: req.Cover, TopicTag: req.TopicTag, Status: req.Status}
 	updated, err := h.svc.Update(uint(id), middleware.GetUserID(c), a)
 	if err != nil {
 		c.Error(err)

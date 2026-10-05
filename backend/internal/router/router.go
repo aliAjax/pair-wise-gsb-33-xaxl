@@ -36,7 +36,7 @@ func Setup(cfg *config.Config, db *gorm.DB, logger *slog.Logger) *gin.Engine {
 	favoriteService := service.NewFavoriteService(favoriteRepo, logger)
 	gardenService := service.NewUserGardenService(gardenRepo, logger)
 	questionService := service.NewQuestionService(questionRepo, answerRepo, userService, logger)
-	answerService := service.NewAnswerService(db, answerRepo, questionRepo, logger)
+	answerService := service.NewAnswerService(db, answerRepo, questionRepo, articleRepo, logger)
 
 	// handlers
 	userHandler := handler.NewUserHandler(userService, logger)
@@ -74,6 +74,7 @@ func Setup(cfg *config.Config, db *gorm.DB, logger *slog.Logger) *gin.Engine {
 		registerGardenRoutes(v1, cfg, gardenHandler, limiter)
 		registerQuestionRoutes(v1, cfg, questionHandler, answerHandler, limiter)
 		v1.POST("/uploads", middleware.AuthRequired(cfg), limiter.Limit(), uploadHandler.Upload)
+		v1.PUT("/answers/:id", middleware.AuthRequired(cfg), answerHandler.Update)
 		v1.PUT("/answers/:id/like", middleware.AuthRequired(cfg), answerHandler.Like)
 	}
 	return r

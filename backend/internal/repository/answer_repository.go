@@ -54,6 +54,18 @@ func (r *AnswerRepository) UpdateTx(tx *gorm.DB, a *model.Answer) error {
 	return tx.Save(a).Error
 }
 
+// FindByIDTx locates an answer by id within an outer transaction.
+func (r *AnswerRepository) FindByIDTx(tx *gorm.DB, id uint) (*model.Answer, error) {
+	var a model.Answer
+	if err := tx.First(&a, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &a, nil
+}
+
 // IncrementLike bumps the like count of an answer.
 func (r *AnswerRepository) IncrementLike(id uint) error {
 	return r.db.Model(&model.Answer{}).Where("id = ?", id).

@@ -60,7 +60,9 @@ func (h *AnswerHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, dto.OK(a))
 }
 
-// Adopt handles PUT /questions/:questionId/adopt.
+// Adopt handles PUT /questions/:questionId/adopt. The response carries the
+// adopted answer and the sedimented article draft generated in the same
+// transaction; on conflict (another window adopted first) it returns 409.
 func (h *AnswerHandler) Adopt(c *gin.Context) {
 	questionID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {
@@ -72,7 +74,28 @@ func (h *AnswerHandler) Adopt(c *gin.Context) {
 		c.Error(util.NewAppError(http.StatusBadRequest, constants.CodeBadRequest, constants.MsgInvalidParam))
 		return
 	}
-	a, err := h.svc.Adopt(middleware.GetUserID(c), uint(questionID), req.AnswerID)
+	a, draft, err := h.svc.Adopt(middleware.GetUserID(c), uint(questionID), req.AnswerID)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.OK(dto.AdoptResponse{Answer: a, Draft: draft}))
+}
+
+// Update handles PUT /answers/:id. Editing an answer bumps its version and
+// invalidates unpublished QA drafts derived from it in one transaction.
+func (h *AnswerHandler) Update(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.Error(util.NewAppError(http.StatusBadRequest, constants.CodeBadRequest, "invalid answer id"))
+		return
+	}
+	var req dto.AnswerUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(util.NewAppError(http.StatusBadRequest, constants.CodeBadRequest, constants.MsgInvalidParam))
+		return
+	}
+	a, err := h.svc.Update(middleware.GetUserID(c), uint(id), req.Content)
 	if err != nil {
 		c.Error(err)
 		return

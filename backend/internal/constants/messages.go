@@ -16,6 +16,8 @@ const (
 	MsgReminderDone         = "提醒已标记完成"
 	MsgQuestionCreated      = "问题发布成功"
 	MsgAnswerAdopted        = "已采纳该回答"
+	MsgAnswerAdoptedDraft   = "已采纳该回答，文章草稿已生成"
+	MsgAnswerUpdated        = "回答已更新"
 	MsgAnswerLiked          = "点赞成功"
 	MsgProfileUpdated       = "资料已更新"
 	MsgUploadOK             = "上传成功"

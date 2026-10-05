@@ -41,10 +41,15 @@ CREATE TABLE IF NOT EXISTS care_articles (
   topic_tag VARCHAR(32) NOT NULL,
   status VARCHAR(16) NOT NULL DEFAULT 'published',
   view_count INT NOT NULL DEFAULT 0,
+  question_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  answer_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  answer_version INT NOT NULL DEFAULT 0,
   created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   KEY idx_articles_user (user_id),
-  KEY idx_articles_topic (topic_tag)
+  KEY idx_articles_topic (topic_tag),
+  KEY idx_articles_question (question_id),
+  KEY idx_articles_answer (answer_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS disease_pests (
@@ -114,6 +119,7 @@ CREATE TABLE IF NOT EXISTS answers (
   content TEXT NOT NULL,
   is_best TINYINT(1) NOT NULL DEFAULT 0,
   like_count INT NOT NULL DEFAULT 0,
+  version INT NOT NULL DEFAULT 1,
   created_at DATETIME(3) DEFAULT CURRENT_TIMESTAMP(3),
   KEY idx_answers_question (question_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

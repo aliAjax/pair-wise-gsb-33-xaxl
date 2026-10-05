@@ -5,6 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/gbplantwiki/gbplantwiki/internal/constants"
 	"github.com/gbplantwiki/gbplantwiki/internal/model"
 )
 
@@ -57,4 +58,30 @@ func (r *QuestionRepository) Update(q *model.Question) error {
 // UpdateTx persists a question within an outer transaction.
 func (r *QuestionRepository) UpdateTx(tx *gorm.DB, q *model.Question) error {
 	return tx.Save(q).Error
+}
+
+// FindByIDTx locates a question by id within an outer transaction.
+func (r *QuestionRepository) FindByIDTx(tx *gorm.DB, id uint) (*model.Question, error) {
+	var q model.Question
+	if err := tx.First(&q, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &q, nil
+}
+
+// CloseIfOpenTx atomically flips a question from open to closed within an outer
+// transaction. It reports false when the question was already closed, which is
+// how concurrent adopt requests lose the race: only the first transaction to
+// flip the status proceeds to mark the best answer and generate the draft.
+func (r *QuestionRepository) CloseIfOpenTx(tx *gorm.DB, id uint) (bool, error) {
+	res := tx.Model(&model.Question{}).
+		Where("id = ? AND status = ?", id, constants.QuestionStatusOpen).
+		Update("status", constants.QuestionStatusClosed)
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
 }

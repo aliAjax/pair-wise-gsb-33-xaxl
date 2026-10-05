@@ -31,7 +31,7 @@ func (s *QuestionService) Create(userID uint, q *model.Question) (*model.Questio
 		q.Images = "[]"
 	}
 	if q.Status == "" {
-		q.Status = "open"
+		q.Status = constants.QuestionStatusOpen
 	}
 	if err := s.repo.Create(q); err != nil {
 		s.logger.Error(fmt.Sprintf(constants.LogQuestionCreateFailed, q.Title), "error", err)

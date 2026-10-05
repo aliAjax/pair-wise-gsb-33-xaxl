@@ -35,8 +35,13 @@ const (
 	LogQuestionCreateSuccess    = "question created: title=%s"
 	LogQuestionCreateFailed     = "question create failed: title=%s"
 	LogAnswerCreateSuccess      = "answer created: question_id=%d"
+	LogAnswerCreateRejected     = "answer create rejected: question_id=%d status=%s"
+	LogAnswerUpdateSuccess      = "answer updated: id=%d version=%d"
 	LogAnswerAdoptSuccess       = "answer adopted as best: id=%d"
+	LogAnswerAdoptConflict      = "answer adopt conflict: question_id=%d already closed"
 	LogAnswerLikeSuccess        = "answer liked: id=%d"
+	LogArticleDraftGenerated    = "care article draft generated from qa: question_id=%d answer_id=%d"
+	LogArticleDraftInvalidated  = "care article drafts invalidated: answer_id=%d count=%d"
 	LogUploadSuccess            = "file upload success: path=%s"
 	LogUploadFailed             = "file upload failed: filename=%s"
 	LogRateLimited              = "request rate limited: path=%s ip=%s"
@@ -45,5 +50,5 @@ const (
 
 // LogTemplateCount returns the number of defined log templates (used by tests).
 func LogTemplateCount() int {
-	return 33
+	return 42
 }

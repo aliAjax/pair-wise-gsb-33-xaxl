@@ -6,6 +6,10 @@ export function listArticles(params: { page?: number; page_size?: number; topic_
   return request.get<never, PageData<CareArticle>>('/articles', { params })
 }
 
+export function listMyArticles(params: { page?: number; page_size?: number }) {
+  return request.get<never, PageData<CareArticle>>('/articles/mine', { params })
+}
+
 export function getArticle(id: number | string) {
   return request.get<never, CareArticle>(`/articles/${id}`)
 }
@@ -14,7 +18,7 @@ export function createArticle(payload: { title: string; content: string; cover?:
   return request.post<never, CareArticle>('/articles', payload)
 }
 
-export function updateArticle(id: number, payload: { title: string; content: string; cover?: string; topic_tag: CareTopicTag }) {
+export function updateArticle(id: number, payload: { title?: string; content?: string; cover?: string; topic_tag?: CareTopicTag; status?: string }) {
   return request.put<never, CareArticle>(`/articles/${id}`, payload)
 }
 

@@ -1,3 +1,5 @@
+import type { CareArticle } from '@/constants/article'
+
 export interface ApiResponse<T = unknown> {
   code: number
   message: string
@@ -74,5 +76,11 @@ export interface Answer {
   content: string
   is_best: boolean
   like_count: number
+  version: number
   created_at: string
+}
+
+export interface AdoptResult {
+  answer: Answer
+  draft: CareArticle
 }

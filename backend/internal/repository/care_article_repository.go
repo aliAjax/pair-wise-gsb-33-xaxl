@@ -24,6 +24,25 @@ func (r *CareArticleRepository) Create(a *model.CareArticle) error {
 	return r.db.Create(a).Error
 }
 
+// CreateTx inserts an article within an outer transaction.
+func (r *CareArticleRepository) CreateTx(tx *gorm.DB, a *model.CareArticle) error {
+	return tx.Create(a).Error
+}
+
+// InvalidateDraftsByAnswerTx marks every unpublished draft derived from the
+// given answer as invalid within an outer transaction. Published articles keep
+// their original snapshot and are never touched. It returns the number of
+// drafts invalidated.
+func (r *CareArticleRepository) InvalidateDraftsByAnswerTx(tx *gorm.DB, answerID uint) (int64, error) {
+	res := tx.Model(&model.CareArticle{}).
+		Where("answer_id = ? AND status = ?", answerID, constants.ArticleStatusDraft).
+		Update("status", constants.ArticleStatusInvalid)
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	return res.RowsAffected, nil
+}
+
 // FindByID locates an article by id.
 func (r *CareArticleRepository) FindByID(id uint) (*model.CareArticle, error) {
 	var a model.CareArticle
@@ -88,4 +107,19 @@ func (r *CareArticleRepository) ListLatest(limit int) ([]model.CareArticle, erro
 		return nil, err
 	}
 	return items, nil
+}
+
+// ListByUser returns articles owned by a user in every status (draft, invalid,
+// published) so the author can keep working on sedimented drafts.
+func (r *CareArticleRepository) ListByUser(userID uint, page, pageSize int) ([]model.CareArticle, int64, error) {
+	var items []model.CareArticle
+	var total int64
+	q := r.db.Model(&model.CareArticle{}).Where("user_id = ?", userID)
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := q.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&items).Error; err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
 }
