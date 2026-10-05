@@ -36,7 +36,8 @@ func Setup(cfg *config.Config, db *gorm.DB, logger *slog.Logger) *gin.Engine {
 	favoriteService := service.NewFavoriteService(favoriteRepo, logger)
 	gardenService := service.NewUserGardenService(gardenRepo, logger)
 	questionService := service.NewQuestionService(questionRepo, answerRepo, userService, logger)
-	answerService := service.NewAnswerService(db, answerRepo, questionRepo, logger)
+	draftService := service.NewKnowledgeDraftService(db, articleRepo, questionRepo, answerRepo, logger)
+	answerService := service.NewAnswerService(db, answerRepo, questionRepo, draftService, logger)
 
 	// handlers
 	userHandler := handler.NewUserHandler(userService, logger)
@@ -48,6 +49,7 @@ func Setup(cfg *config.Config, db *gorm.DB, logger *slog.Logger) *gin.Engine {
 	gardenHandler := handler.NewUserGardenHandler(gardenService, logger)
 	questionHandler := handler.NewQuestionHandler(questionService, logger)
 	answerHandler := handler.NewAnswerHandler(answerService, logger)
+	draftHandler := handler.NewKnowledgeDraftHandler(draftService, logger)
 	uploadHandler := handler.NewUploadHandler(cfg, logger)
 	homeHandler := handler.NewHomeHandler(plantService, articleService)
 
@@ -67,12 +69,12 @@ func Setup(cfg *config.Config, db *gorm.DB, logger *slog.Logger) *gin.Engine {
 		v1.GET("/home/overview", homeHandler.Overview)
 		registerUserRoutes(v1, cfg, userHandler, limiter)
 		registerPlantRoutes(v1, cfg, plantHandler, limiter)
-		registerArticleRoutes(v1, cfg, articleHandler, limiter)
+		registerArticleRoutes(v1, cfg, articleHandler, draftHandler, limiter)
 		registerPestRoutes(v1, cfg, pestHandler, limiter)
 		registerReminderRoutes(v1, cfg, reminderHandler, limiter)
 		registerFavoriteRoutes(v1, cfg, favoriteHandler, limiter)
 		registerGardenRoutes(v1, cfg, gardenHandler, limiter)
-		registerQuestionRoutes(v1, cfg, questionHandler, answerHandler, limiter)
+		registerQuestionRoutes(v1, cfg, questionHandler, answerHandler, draftHandler, limiter)
 		v1.POST("/uploads", middleware.AuthRequired(cfg), limiter.Limit(), uploadHandler.Upload)
 		v1.PUT("/answers/:id/like", middleware.AuthRequired(cfg), answerHandler.Like)
 	}

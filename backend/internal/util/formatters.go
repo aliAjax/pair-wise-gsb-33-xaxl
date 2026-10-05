@@ -80,3 +80,29 @@ func ReminderStatusText(s string) string {
 		return "未知"
 	}
 }
+
+// QuestionStatusText maps a question status to Chinese text.
+func QuestionStatusText(s string) string {
+	switch s {
+	case "open":
+		return "待采纳"
+	case "closed":
+		return "已采纳"
+	default:
+		return "未知"
+	}
+}
+
+// ArticleStatusText maps a care article status to Chinese text.
+func ArticleStatusText(s string) string {
+	switch s {
+	case "draft":
+		return "草稿"
+	case "published":
+		return "已发布"
+	case "invalidated":
+		return "已失效"
+	default:
+		return "未知"
+	}
+}

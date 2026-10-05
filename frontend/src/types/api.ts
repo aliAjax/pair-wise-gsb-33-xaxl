@@ -63,7 +63,7 @@ export interface Question {
   title: string
   content: string
   images: string
-  status: string
+  status: 'open' | 'closed'
   created_at: string
 }
 
@@ -74,5 +74,33 @@ export interface Answer {
   content: string
   is_best: boolean
   like_count: number
+  version: number
   created_at: string
+  updated_at: string
+}
+
+export interface AdoptResult {
+  best_answer: Answer
+  draft: CareArticleLike
+}
+
+// Structural type for the care article fields shared with the Q&A module, so
+// api.ts does not have to import constants (avoiding a constants <-> types
+// cycle). Use constants/article.ts CareArticle elsewhere.
+export interface CareArticleLike {
+  id: number
+  user_id: number
+  title: string
+  content: string
+  cover: string
+  topic_tag: string
+  status: 'draft' | 'published' | 'invalidated'
+  view_count: number
+  source_question_id: number
+  source_answer_id: number
+  question_snapshot: string
+  answer_snapshot: string
+  answer_version: number
+  created_at: string
+  updated_at: string
 }

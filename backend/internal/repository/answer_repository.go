@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/gbplantwiki/gbplantwiki/internal/model"
 )
@@ -27,6 +28,32 @@ func (r *AnswerRepository) Create(a *model.Answer) error {
 func (r *AnswerRepository) FindByID(id uint) (*model.Answer, error) {
 	var a model.Answer
 	if err := r.db.First(&a, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &a, nil
+}
+
+// FindByIDForUpdateTx locates an answer within a transaction and takes a row
+// lock so an answer cannot be edited while an adoption/retry is in flight.
+func (r *AnswerRepository) FindByIDForUpdateTx(tx *gorm.DB, id uint) (*model.Answer, error) {
+	var a model.Answer
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&a, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &a, nil
+}
+
+// FindBestForQuestionTx returns the adopted (is_best) answer for a question
+// within a transaction.
+func (r *AnswerRepository) FindBestForQuestionTx(tx *gorm.DB, questionID uint) (*model.Answer, error) {
+	var a model.Answer
+	if err := tx.Where("question_id = ? AND is_best = ?", questionID, true).First(&a).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
 		}

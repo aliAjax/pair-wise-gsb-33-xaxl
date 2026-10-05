@@ -130,11 +130,13 @@ gb-61/
 | POST | /api/v1/plants | 管理员（限流） | 新增品种 |
 | PUT | /api/v1/plants/:id | 管理员 | 更新品种 |
 | DELETE | /api/v1/plants/:id | 管理员 | 删除品种 |
-| GET | /api/v1/articles | 公开 | 养护文章分页列表/筛选 |
-| GET | /api/v1/articles/:id | 公开 | 文章详情并自增阅读数 |
+| GET | /api/v1/articles | 公开 | 养护文章分页列表/筛选（仅已发布） |
+| GET | /api/v1/articles/:id | 公开（可选登录） | 文章详情并自增阅读数；草稿/失效稿仅主人可见 |
 | POST | /api/v1/articles | 登录（限流） | 发布文章 |
-| PUT | /api/v1/articles/:id | 登录 | 编辑自己的文章 |
+| PUT | /api/v1/articles/:id | 登录 | 编辑自己的文章（已发布的问答沉淀文保留原版，不可改） |
+| PUT | /api/v1/articles/:id/publish | 登录 | 将问答沉淀草稿发布为养护文章（选择主题标签） |
 | DELETE | /api/v1/articles/:id | 登录 | 删除自己的文章 |
+| GET | /api/v1/me/articles | 登录 | 我的文章/草稿箱（可按 draft/invalidated/published 过滤） |
 | GET | /api/v1/pests | 公开 | 病虫害手册搜索 |
 | GET | /api/v1/pests/:id | 公开 | 病虫害详情 |
 | POST | /api/v1/pests | 管理员（限流） | 新增病虫害条目 |
@@ -157,7 +159,10 @@ gb-61/
 | GET | /api/v1/questions/:id/answers | 公开 | 问题回答列表 |
 | POST | /api/v1/questions | 登录（限流） | 发布问题 |
 | POST | /api/v1/questions/:id/answers | 登录 | 回答问题 |
-| PUT | /api/v1/questions/:id/adopt | 登录 | 采纳最佳回答（事务：清旧最佳+标最佳+关闭问题） |
+| PUT | /api/v1/answers/:id | 登录 | 修改自己的回答（已采纳回答修改后未发布草稿失效） |
+| PUT | /api/v1/questions/:id/adopt | 登录 | 采纳最佳回答（单事务：锁问题行→仅首个请求成功→标最佳+关闭问题+生成养护文章草稿并固定问答快照；失败整体回滚） |
+| GET | /api/v1/questions/:id/draft | 登录（问题主人） | 查看该问题的沉淀草稿（draft/invalidated/published） |
+| PUT | /api/v1/questions/:id/draft/retry | 登录（问题主人） | 重新生成失效/缺失的草稿；已发布文章保留原版不覆盖 |
 | PUT | /api/v1/answers/:id/like | 登录 | 回答点赞 |
 | POST | /api/v1/uploads | 登录（限流） | 上传图片 |
 

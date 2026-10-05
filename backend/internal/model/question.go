@@ -2,6 +2,15 @@ package model
 
 import "time"
 
+// Question statuses.
+const (
+	// QuestionStatusOpen waits for answers / an adoption.
+	QuestionStatusOpen = "open"
+	// QuestionStatusClosed means a best answer was adopted; the adoption is
+	// final and a care article draft has been generated.
+	QuestionStatusClosed = "closed"
+)
+
 // Question is a gardening Q&A post.
 type Question struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`

@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/gbplantwiki/gbplantwiki/internal/model"
 )
@@ -27,6 +28,20 @@ func (r *QuestionRepository) Create(q *model.Question) error {
 func (r *QuestionRepository) FindByID(id uint) (*model.Question, error) {
 	var q model.Question
 	if err := r.db.First(&q, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &q, nil
+}
+
+// FindByIDForUpdateTx locates a question by id within a transaction and takes
+// a row lock (SELECT ... FOR UPDATE) so concurrent adoptions serialize on the
+// question row; only the first transaction can close it.
+func (r *QuestionRepository) FindByIDForUpdateTx(tx *gorm.DB, id uint) (*model.Question, error) {
+	var q model.Question
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&q, id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrNotFound
 		}

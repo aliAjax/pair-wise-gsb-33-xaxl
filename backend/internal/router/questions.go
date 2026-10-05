@@ -8,7 +8,8 @@ import (
 	"github.com/gbplantwiki/gbplantwiki/internal/middleware"
 )
 
-func registerQuestionRoutes(v1 *gin.RouterGroup, cfg *config.Config, qh *handler.QuestionHandler, ah *handler.AnswerHandler, limiter *middleware.RateLimiter) {
+func registerQuestionRoutes(v1 *gin.RouterGroup, cfg *config.Config, qh *handler.QuestionHandler,
+	ah *handler.AnswerHandler, dh *handler.KnowledgeDraftHandler, limiter *middleware.RateLimiter) {
 	questions := v1.Group("/questions")
 	questions.GET("", qh.List)
 	questions.GET("/:id", qh.Get)
@@ -17,4 +18,8 @@ func registerQuestionRoutes(v1 *gin.RouterGroup, cfg *config.Config, qh *handler
 	auth.POST("", limiter.Limit(), qh.Create)
 	auth.POST("/:id/answers", ah.Create)
 	auth.PUT("/:id/adopt", ah.Adopt)
+	auth.GET("/:id/draft", dh.GetForQuestion)
+	auth.PUT("/:id/draft/retry", dh.Retry)
+
+	v1.PUT("/answers/:id", middleware.AuthRequired(cfg), ah.Update)
 }

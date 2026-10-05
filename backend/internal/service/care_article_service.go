@@ -40,8 +40,9 @@ func (s *CareArticleService) Create(userID uint, a *model.CareArticle) (*model.C
 	return a, nil
 }
 
-// Get returns an article and increments view count.
-func (s *CareArticleService) Get(id uint) (*model.CareArticle, error) {
+// Get returns an article. Published articles are public; drafts and
+// invalidated Q&A drafts are visible only to their owner.
+func (s *CareArticleService) Get(id, viewerID uint) (*model.CareArticle, error) {
 	a, err := s.repo.FindByID(id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
@@ -49,14 +50,21 @@ func (s *CareArticleService) Get(id uint) (*model.CareArticle, error) {
 		}
 		return nil, fmt.Errorf("care article get: %w", err)
 	}
-	if err := s.repo.IncrementView(id); err == nil {
-		a.ViewCount++
-		s.logger.Info(fmt.Sprintf(constants.LogArticleViewIncremented, id), "id", id)
+	if a.Status != constants.ArticleStatusPublished && a.UserID != viewerID {
+		return nil, util.NewAppError(404, constants.CodeNotFound, fmt.Sprintf("CareArticle[id=%d] not found", id))
+	}
+	if a.Status == constants.ArticleStatusPublished {
+		if err := s.repo.IncrementView(id); err == nil {
+			a.ViewCount++
+			s.logger.Info(fmt.Sprintf(constants.LogArticleViewIncremented, id), "id", id)
+		}
 	}
 	return a, nil
 }
 
-// Update edits an article, verifying ownership.
+// Update edits an article, verifying ownership. Q&A-sedimented articles keep
+// their frozen original after publication, and invalidated drafts must be
+// regenerated rather than edited.
 func (s *CareArticleService) Update(id, userID uint, a *model.CareArticle) (*model.CareArticle, error) {
 	exist, err := s.repo.FindByID(id)
 	if err != nil {
@@ -65,6 +73,14 @@ func (s *CareArticleService) Update(id, userID uint, a *model.CareArticle) (*mod
 	if exist.UserID != userID {
 		return nil, util.NewAppError(403, constants.CodeForbidden,
 			fmt.Sprintf("CareArticle[id=%d] update failed: user_id=%d is not owner", id, userID))
+	}
+	if exist.SourceQuestionID != 0 && exist.Status == constants.ArticleStatusPublished {
+		return nil, util.NewAppError(409, constants.CodeConflict,
+			fmt.Sprintf("CareArticle[id=%d] update failed: published Q&A sedimentation article retains its original version", id))
+	}
+	if exist.Status == constants.ArticleStatusInvalidated {
+		return nil, util.NewAppError(409, constants.CodeConflict,
+			fmt.Sprintf("CareArticle[id=%d] update failed: draft invalidated, please regenerate before editing", id))
 	}
 	if a.Title != "" {
 		exist.Title = a.Title
@@ -104,11 +120,25 @@ func (s *CareArticleService) Delete(id, userID uint) error {
 	return nil
 }
 
-// List filters articles by topic tag and keyword.
+// List filters published articles by topic tag and keyword.
 func (s *CareArticleService) List(topicTag, keyword string, page, pageSize int) ([]model.CareArticle, int64, error) {
 	items, total, err := s.repo.List(topicTag, keyword, page, pageSize)
 	if err != nil {
 		return nil, 0, fmt.Errorf("care article list: %w", err)
+	}
+	return items, total, nil
+}
+
+// ListMine returns the current user's own articles, optionally filtered by
+// status (draft box includes invalidated drafts).
+func (s *CareArticleService) ListMine(userID uint, status string, page, pageSize int) ([]model.CareArticle, int64, error) {
+	if status != "" && !constants.IsValidArticleStatus(status) {
+		return nil, 0, util.NewAppError(422, constants.CodeValidationError,
+			fmt.Sprintf("CareArticle[status=%s] list failed: invalid status", status))
+	}
+	items, total, err := s.repo.ListMine(userID, status, page, pageSize)
+	if err != nil {
+		return nil, 0, fmt.Errorf("care article list mine: %w", err)
 	}
 	return items, total, nil
 }

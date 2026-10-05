@@ -4,7 +4,7 @@
       <template #error><div class="img-placeholder">📖</div></template>
     </el-image>
     <div class="body">
-      <el-tag size="small" type="success">{{ CareTopicTagMap[article.topic_tag] }}</el-tag>
+      <el-tag size="small" type="success">{{ CareTopicTagMap[article.topic_tag as CareTopicTag] }}</el-tag>
       <div class="title">{{ article.title }}</div>
       <div class="meta">{{ formatDate(article.created_at) }} · 阅读 {{ article.view_count }}</div>
     </div>
@@ -12,7 +12,7 @@
 </template>
 
 <script setup lang="ts">
-import { CareTopicTagMap, type CareArticle } from '@/constants/article'
+import { CareTopicTagMap, type CareArticle, type CareTopicTag } from '@/constants/article'
 import { formatDate } from '@/utils/dateFormat'
 
 defineProps<{ article: CareArticle }>()

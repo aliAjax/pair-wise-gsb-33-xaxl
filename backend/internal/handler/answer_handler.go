@@ -60,6 +60,26 @@ func (h *AnswerHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, dto.OK(a))
 }
 
+// Update handles PUT /answers/:id.
+func (h *AnswerHandler) Update(c *gin.Context) {
+	answerID, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.Error(util.NewAppError(http.StatusBadRequest, constants.CodeBadRequest, "invalid answer id"))
+		return
+	}
+	var req dto.AnswerUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.Error(util.NewAppError(http.StatusBadRequest, constants.CodeBadRequest, constants.MsgInvalidParam))
+		return
+	}
+	a, err := h.svc.Update(middleware.GetUserID(c), uint(answerID), req.Content)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.OK(a))
+}
+
 // Adopt handles PUT /questions/:questionId/adopt.
 func (h *AnswerHandler) Adopt(c *gin.Context) {
 	questionID, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -72,12 +92,12 @@ func (h *AnswerHandler) Adopt(c *gin.Context) {
 		c.Error(util.NewAppError(http.StatusBadRequest, constants.CodeBadRequest, constants.MsgInvalidParam))
 		return
 	}
-	a, err := h.svc.Adopt(middleware.GetUserID(c), uint(questionID), req.AnswerID)
+	a, draft, err := h.svc.Adopt(middleware.GetUserID(c), uint(questionID), req.AnswerID)
 	if err != nil {
 		c.Error(err)
 		return
 	}
-	c.JSON(http.StatusOK, dto.OK(a))
+	c.JSON(http.StatusOK, dto.OK(dto.AdoptResultResponse{BestAnswer: a, Draft: draft}))
 }
 
 // Like handles PUT /answers/:id/like.

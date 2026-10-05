@@ -46,6 +46,25 @@ func (h *CareArticleHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.OK(dto.PageData{List: items, Total: total, Page: page, Size: pageSize}))
 }
 
+// ListMine handles GET /me/articles (authenticated; draft box).
+func (h *CareArticleHandler) ListMine(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+	status := c.Query("status")
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 10
+	}
+	items, total, err := h.svc.ListMine(middleware.GetUserID(c), status, page, pageSize)
+	if err != nil {
+		c.Error(err)
+		return
+	}
+	c.JSON(http.StatusOK, dto.OK(dto.PageData{List: items, Total: total, Page: page, Size: pageSize}))
+}
+
 // Get handles GET /articles/:id.
 func (h *CareArticleHandler) Get(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
@@ -53,7 +72,7 @@ func (h *CareArticleHandler) Get(c *gin.Context) {
 		c.Error(util.NewAppError(http.StatusBadRequest, constants.CodeBadRequest, "invalid article id"))
 		return
 	}
-	a, err := h.svc.Get(uint(id))
+	a, err := h.svc.Get(uint(id), middleware.GetUserID(c))
 	if err != nil {
 		c.Error(err)
 		return
@@ -84,7 +103,7 @@ func (h *CareArticleHandler) Update(c *gin.Context) {
 		c.Error(util.NewAppError(http.StatusBadRequest, constants.CodeBadRequest, "invalid article id"))
 		return
 	}
-	var req dto.ArticleCreateRequest
+	var req dto.ArticleUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(util.NewAppError(http.StatusBadRequest, constants.CodeBadRequest, constants.MsgInvalidParam))
 		return
